@@ -45,7 +45,8 @@ private:
 		int m_nLightObjectNumber; //Idealmente se sacaría del archivo de parámetros
 		int m_nBlueLightObjectNumber;
 		double redSpeed[2];
-		int totalRedLight;
+		int totalLight;
+		int totalBlueLight;
 };
 
 #endif

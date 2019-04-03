@@ -1,4 +1,4 @@
-//./irsim -E 32 -p paramFiles/iri2Param.txt
+//./irsim -E 31 -p paramFiles/iri2Param.txt
 
 /******************* INCLUDES ******************/
 /***********************************************/
