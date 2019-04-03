@@ -29,7 +29,8 @@
 #include "iri2controller.h"
 
 //#define DEBUG_LIGTS
-//#define DEBUG_CASO
+#define DEBUG_CASO
+#define DEBUG_CONT
 //#define DEBUG_POS
 
 extern gsl_rng* rng;
@@ -135,13 +136,13 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	}
 	printf("\n");
 	
-	printf("PROX: ");
+	/*printf("PROX: ");
 	for ( int i = 0 ; i < m_seProx->GetNumberOfInputs() ; i ++ )
 	{
 		printf("%1.3f ", prox[i]);
 	}
 	printf ("\n");
-	
+	*/
 	printf("LIGHT: ");
 	for ( int i = 0 ; i < m_seLight->GetNumberOfInputs() ; i ++ )
 	{
@@ -163,33 +164,34 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	}
 	printf ("\n");
 	
-	printf("GROUND: ");
+	/*printf("GROUND: ");
 	for ( int i = 0 ; i < m_seGround->GetNumberOfInputs() ; i ++ )
 	{
 		printf("%1.3f ", ground[i]);
 	}
 	printf("\n");
-
-	printf("GROUND MEMORY: ");
+	*/
+	/*printf("GROUND MEMORY: ");
 	for ( int i = 0 ; i < m_seGroundMemory->GetNumberOfInputs() ; i ++ )
 	{
 		printf("%1.3f ", groundMemory[i]);
 	}
 	printf("\n");
-	
-	printf("BATTERY: ");
+	*/
+	/*printf("BATTERY: ");
 	for ( int i = 0 ; i < m_seBattery->GetNumberOfInputs() ; i ++ )
 	{
 		printf("%1.3f ", battery[i]);
 	}
 	printf("\n");
-	
-	printf("BLUE BATTERY: ");
+	*/
+	/*printf("BLUE BATTERY: ");
 	for ( int i = 0 ; i < m_seBlueBattery->GetNumberOfInputs() ; i ++ )
 	{
 		printf("%1.3f ", bluebattery[i]);
 	}
 	printf("\n");
+	*/
 	printf("RED BATTERY: ");
 	for ( int i = 0 ; i < m_seRedBattery->GetNumberOfInputs() ; i ++ )
 	{
@@ -197,13 +199,13 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	}
 	printf("\n");
 	
-  printf("ENCODER: ");
+  /*printf("ENCODER: ");
 	for ( int i = 0 ; i < m_seEncoder->GetNumberOfInputs() ; i ++ )
 	{
 		printf("%1.5f ", encoder[i]);
 	}
 	printf("\n");
-  
+  */
   printf("COMPASS: ");
 	for ( int i = 0 ; i < m_seCompass->GetNumberOfInputs() ; i ++ )
 	{
@@ -234,14 +236,7 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	totalBlueLight = 0.5*bluelight[7] + 0.5*bluelight[0] + 0.05*bluelight[1] + 0.05*bluelight[6];
 	redSpeed[0] = redlight[0] + redlight[1] + redlight[2] + redlight[3]; //Sensores de luz del lado izquierdo
 	redSpeed[1] = redlight[4] + redlight[5] + redlight[6] + redlight[7]; //Sensores de luz del lado derecho
-	conSpeed[0] = prox[0]*2 + prox[1]*0.1 + prox[2]*0.1 + prox[3]*0.1; //Sensores de proximidad del lado izquierdo
-	conSpeed[1] = prox[4]*0.1 + prox[5]*0.1 + prox[6]*0.1 + prox[7]*2; //Sensores de proximidad del lado derecho
-	
-	#ifdef DEBUG_CASO
-	std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
-	std::cout << "El caso: " << caso << std::endl;
-	std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
-	#endif
+	conPared = contact[0] + contact[1] + contact[2] + contact[3] + contact[4] + contact[5] + contact[6] + contact[7];
 
 	/*if(redbattery[0] <= 0.1) //Si ha pasado el turno se dirige a realizar el cambio de turno
 	{
@@ -250,14 +245,22 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	}
 	else //Si ha realizado el cambio de turno se dirige a recoger a los pacientes
 	{*/
+
 		if(caso == 0) //Recoge uno a uno a los pacientes de mayor importancia
 		{
+			#ifdef DEBUG_CASO
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			std::cout << "El caso es: " << caso << std::endl;
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			#endif
+
 			#ifdef DEBUG_LIGTS
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			std::cout << "L luz es: " << totalLight << std::endl;
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			#endif
-			if ( totalLight >= 0.45)
+
+			if ( totalLight >= 0.40)
 			{
 				m_seLight->SwitchNearestLight(0);
 				numAm = numAm + 1;
@@ -288,6 +291,12 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 		}
 		else if (caso == 1) //Tras recoger un unico paciente va al hospital
 		{
+			#ifdef DEBUG_CASO
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			std::cout << "El caso es: " << caso << std::endl;
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			#endif
+
 			#ifdef DEBUG_POS
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			std::cout << "X: " << m_pcEpuck->GetPosition().x << " | Y: " << m_pcEpuck->GetPosition().y << std::endl;
@@ -295,13 +304,13 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 			#endif
 
 
-			if(compass[0] < M_PI*1.5 + 0.5|| compass[0] > 2*M_PI - 0.1)
+			if(compass[0] < 6.25 && compass[0] > 0.1)
 			{
-				m_acWheels->SetSpeed(-50,50);
+				m_acWheels->SetSpeed(50,-50);
 			}
-			else if((compass[0] > M_PI*1.5 + 0.5  && compass[0] < 2*M_PI - 0.5) && ((m_pcEpuck->GetPosition().x < 1.2) || (m_pcEpuck->GetPosition().y > -1.2)))
+			else if((compass[0] > 6.25 || compass[0] < 0.1))
 			{
-				caso = 4;
+				caso = 3;
 				//std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 				//std::cout << "VelX: " << 500 + 150*conSpeed[0] << " | VelY: " << 500 + 150*conSpeed[1] << std::endl;
 				//std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
@@ -321,13 +330,19 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 		}
 		else if (caso == 2) //Recoge a los pacientes de menor importancia
 		{
-			if ( totalBlueLight >= 0.45)
+			#ifdef DEBUG_CASO
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			std::cout << "El caso es: " << caso << std::endl;
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			#endif
+
+			if ( totalBlueLight >= 0.40)
 			{
 				m_seBlueLight->SwitchNearestLight(0);
 				numBl = numBl + 1;
 				if(numBl == m_nBlueLightObjectNumber)
 				{
-					caso = 3;
+					caso = 1;
 				}
 			}
 			if ( bluelight[0] * bluelight[7] == 0.0 )
@@ -348,42 +363,61 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 				m_acWheels->SetSpeed(500,500);
 			}	
 		}
-		else if (caso == 3) // Tras recoger a todos los pacientes de menor importancia va al hospital
+		/*else if (caso == 3) // Tras recoger a todos los pacientes de menor importancia va al hospital
 		{
+			#ifdef DEBUG_CASO
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			std::cout << "El caso es: " << caso << std::endl;
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			#endif
+
 			if(compass[0] < 5.5 || compass[0] > 5.7)
 			{
 				m_acWheels->SetSpeed(-50,50);
 			}
-			else if((compass[0] > 5.5 || compass[0] < 5.7) && ((m_pcEpuck->GetPosition().x < 1.2) || (m_pcEpuck->GetPosition().y > -1.2)))
+			else if((compass[0] > 5.5 || compass[0] < 5.7) && ((m_pcEpuck->GetPosition().x < 1.1) || (m_pcEpuck->GetPosition().y > -1.1)))
 			{
 				m_acWheels->SetSpeed(500,500);
 			}
-			else if((m_pcEpuck->GetPosition().x >= 1.2) && (m_pcEpuck->GetPosition().y < -1.2))
+			else if((m_pcEpuck->GetPosition().x >= 1.1) && (m_pcEpuck->GetPosition().y < -1.1))
 			{
 				caso = 5;
 			}	
-		}
-		else if(caso == 4)
+		}*/
+		else if(caso == 3)
 		{
-			if((500+100*conSpeed[0])< 680 && (500+100*conSpeed[1])< 680 && (m_pcEpuck->GetPosition().x <= 1.2) || (m_pcEpuck->GetPosition().y > -1.2))
+			#ifdef DEBUG_CASO
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			std::cout << "El caso es: " << caso << std::endl;
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			#endif
+			#ifdef DEBUG_CONT
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			std::cout << "Contacto: " << conPared << std::endl;
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			#endif
+			m_acWheels->SetSpeed(500,500);
+
+			if((conPared > 0) && (m_pcEpuck->GetPosition().y > -1.2))
 			{
-				std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
-				std::cout << "VelX: " << 500 + 100*conSpeed[0] << " | VelY: " << 500 + 100*conSpeed[1] << std::endl;
-				std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
-				m_acWheels->SetSpeed(500 + 50*conSpeed[0],500 + 50*conSpeed[1]);
-			}
-			else if(500+100*conSpeed[0] > 680 || 500+100*conSpeed[1] > 680 && (m_pcEpuck->GetPosition().x <= 1.2) ||(m_pcEpuck->GetPosition().y > -1.2))
-			{
-				std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
-				std::cout << "VelX: " << "500" << " | VelY: " << "500" << std::endl;
-				std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
-				m_acWheels->SetSpeed(500, 500);
+				if(compass[0] < 4.65 || compass[0] > 4.7)
+				{
+					m_acWheels->SetSpeed(50,-50);
+				}
+				else
+				{
+					m_acWheels->SetSpeed(500,500);
+				}
 			}
 			else if((m_pcEpuck->GetPosition().x >= 1.2) && (m_pcEpuck->GetPosition().y < -1.2))
 			{
 				if(numAm == m_nLightObjectNumber)
 				{
 					caso = 2; //Si ya ha recogido todos los pacientes va a recoger a los pacientes de menor importancia
+				}
+				else if(numBl == m_nBlueLightObjectNumber)
+				{
+					caso = 4;
 				}
 				else
 				{

@@ -47,7 +47,7 @@ private:
 		double redSpeed[2];
 		double totalLight;
 		double totalBlueLight;
-		double conSpeed[2];
+		double conPared;
 };
 
 #endif
