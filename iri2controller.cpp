@@ -27,7 +27,6 @@
 
 /******************** Controller **************/
 #include "iri2controller.h"
-#include "iri2exp.cpp"
 
 
 extern gsl_rng* rng;
@@ -213,76 +212,116 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	fclose(filePosition);
 	
 	
-	int caso = 0;
-	int numAm = 0;
-	int numBl = 0;
-	if(redbattery <= 0.2)
+	caso = 0;
+	numAm = 0;
+	numBl = 0;
+	m_nLightObjectNumber = 5; //Idealmente se sacaría del archivo de parámetros
+	m_nBlueLightObjectNumber = 4;
+	totalLight = light[7] + light[0];
+	totalBlueLight = bluelight[7] + bluelight[0];
+	redSpeed[0] = redlight[0] + redlight[1] + redlight[2] + redlight[3]; //Sensores de luz del lado izquierdo
+	redSpeed[1] = redlight[4] + redlight[5] + redlight[6] + redlight[7]; //Sensores de luz del lado derecho
+	
+	if(redbattery[0] <= 0.1) //Si ha pasado el turno se dirige a realizar el cambio de turno
 	{
-		
+		m_acWheels->SetOutput(0, redSpeed[1]); //Para dirigirse a la luz que carga la bateria (realiza el cambio de turno) hacemos que las ruedas se muevan
+  		m_acWheels->SetOutput(1, redSpeed[0]); //a la velocidad a la que les dicen los sensores del lado contrario.
 	}
-	else
+	else if(redbattery[0] >= 0.9) //Si ha realizado el cambio de turno se dirige a recoger a los pacientes
 	{
-		if(caso == 0)
+		if(caso == 0) //Recoge uno a uno a los pacientes de mayor importancia
 		{
-
-
-
-
-
-
-
-
-
-
-
-			if(numAm == m_nLightObjectNumber)
+			if ( totalLight >= 0.9)
 			{
-				if(m_seCompass != 315)
-					{
-					m_acWheels->SetSpeed(-50,50);
+				m_seLight->SwitchNearestLight(0);
+				numAm = numAm + 1;
+				caso = 1;
+			}
+			if ( light[0] * light[7] == 0.0 )
+			{
+				double LightLeft 	= light[0] + light[1] + light[2] + light[3];
+				double LightRight = light[4] + light[5] + light[6] + light[7];
+				if ( LightLeft > LightRight )
+				{
+					m_acWheels->SetSpeed(-500,500);
 				}
 				else
 				{
-					m_acWheels->SetSpeed(50,50);
+					m_acWheels->SetSpeed(500,-500);
 				}
-				
-				if((m_pcEpuck.GetPosition().x >= 1.2) && (m_pcEpuck.GetPosition().y <= -1.2))
-					{
-						caso = 1;
-					}
 			}
-		}
-		else if (caso == 1)
-		{
-
-
-
-
-
-
-
-
-
-
-
-			if(numBl == m_nBlueLightObjectNumber)
+			else
 			{
-				if(m_seCompass != 315)
+				m_acWheels->SetSpeed(500,500);
+			}	
+		}
+		else if (caso == 1) //Tras recoger un unico paciente va al hospital
+		{
+			if(compass[0] < 5.5 || compass[0] > 5.7)
+			{
+				m_acWheels->SetSpeed(-50,50);
+			}
+			else if((compass[0] > 5.5 || compass[0] < 5.7) &&(m_pcEpuck->GetPosition().x < 1.2) && (m_pcEpuck->GetPosition().y > -1.2))
+			{
+				m_acWheels->SetSpeed(500,500);
+			}
+			else if((compass[0] > 5.5 || compass[0] < 5.7) &&(m_pcEpuck->GetPosition().x >= 1.2) && (m_pcEpuck->GetPosition().y < -1.2))
+			{
+				if(numAm == m_nLightObjectNumber)
 				{
-					m_acWheels->SetSpeed(-50,50);
+					caso = 2; //Si ya ha recogido todos los pacientes va a recoger a los pacientes de menor importancia
 				}
 				else
 				{
-					m_acWheels->SetSpeed(50,50);
+					caso = 0; //Si aun quedan pacientes de esta importancia vuelve al estado de recoger a los pacientes
 				}
-
-				if((m_pcEpuck.GetPosition().x >= 1.2) && (m_pcEpuck.GetPosition().y <= -1.2))
-					{
-						caso = 2;
-					}
 			}
 		}
-		else
+		else if (caso == 2) //Recoge a los pacientes de menor importancia
+		{
+			if ( totalBlueLight >= 0.9)
+			{
+				m_seLight->SwitchNearestLight(0);
+				numBl = numBl + 1;
+				if(numBl == m_nBlueLightObjectNumber)
+				{
+					caso = 3;
+				}
+			}
+			if ( bluelight[0] * redlight[7] == 0.0 )
+			{
+				double blueLightLeft 	= bluelight[0] + bluelight[1] + bluelight[2] + bluelight[3];
+				double blueLightRight = bluelight[4] + bluelight[5] + bluelight[6] + bluelight[7];
+				if ( blueLightLeft > blueLightRight )
+				{
+					m_acWheels->SetSpeed(-500,500);
+				}
+				else
+				{
+					m_acWheels->SetSpeed(500,-500);
+				}
+			}
+			else
+			{
+				m_acWheels->SetSpeed(500,500);
+			}	
+		}
+		else if (caso == 3) // Tras recoger a todos los pacientes de menor importancia va al hospital
+		{
+			if(compass[0] < 5.5 || compass[0] > 5.7)
+			{
+				m_acWheels->SetSpeed(-50,50);
+			}
+			else if((compass[0] > 5.5 || compass[0] < 5.7) &&(m_pcEpuck->GetPosition().x < 1.2) && (m_pcEpuck->GetPosition().y > -1.2))
+			{
+				m_acWheels->SetSpeed(500,500);
+			}
+			else if((compass[0] > 5.5 || compass[0] < 5.7) &&(m_pcEpuck->GetPosition().x >= 1.2) && (m_pcEpuck->GetPosition().y < -1.2))
+			{
+				caso = 4;
+			}	
+		}
+		else //ya ha recogido a todos los pacientes de todas las importancias y se queda parado en el hospital
 		{
 			printf("La ambulancia ha atendido a todos los pacientes");
 			m_acWheels->SetSpeed(0,0);

@@ -39,6 +39,13 @@ private:
     dVector2 m_vPosition;
 
 		int m_nWriteToFile;
+		int caso;
+		int numAm;
+		int numBl;
+		int m_nLightObjectNumber; //Idealmente se sacaría del archivo de parámetros
+		int m_nBlueLightObjectNumber;
+		double redSpeed[2];
+		int totalRedLight;
 };
 
 #endif
