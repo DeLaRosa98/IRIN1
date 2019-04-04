@@ -47,7 +47,9 @@ private:
 		double redSpeed[2];
 		double totalLight;
 		double totalBlueLight;
-		double conPared;
+		double conPared[2];
+		int cargando;
+		double umbral_luz;
 };
 
 #endif

@@ -29,8 +29,10 @@
 #include "iri2controller.h"
 
 //#define DEBUG_LIGTS
+//#define DEBUG_PHI
 #define DEBUG_CASO
-#define DEBUG_CONT
+#define DEBUG_NUMBL
+//#define DEBUG_CONT
 //#define DEBUG_POS
 
 extern gsl_rng* rng;
@@ -80,6 +82,7 @@ CIri2Controller::CIri2Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 	numBl = 0;
 	m_nLightObjectNumber = 5; //Idealmente se sacaría del archivo de parámetros
 	m_nBlueLightObjectNumber = 4;
+	cargando = 0;
 
 }
 
@@ -234,17 +237,32 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	#endif
 	totalLight = 0.5*light[7] + 0.5*light[0] + 0.05*light[1] + 0.05*light[6];
 	totalBlueLight = 0.5*bluelight[7] + 0.5*bluelight[0] + 0.05*bluelight[1] + 0.05*bluelight[6];
-	redSpeed[0] = redlight[0] + redlight[1] + redlight[2] + redlight[3]; //Sensores de luz del lado izquierdo
-	redSpeed[1] = redlight[4] + redlight[5] + redlight[6] + redlight[7]; //Sensores de luz del lado derecho
-	conPared = contact[0] + contact[1] + contact[2] + contact[3] + contact[4] + contact[5] + contact[6] + contact[7];
+	redSpeed[0] = (redlight[0] + redlight[1] + redlight[2] + redlight[3]); //Sensores de luz del lado izquierdo
+	redSpeed[1] = (redlight[4] + redlight[5] + redlight[6] + redlight[7]); //Sensores de luz del lado derecho
+	conPared[0] = contact[0] + contact[1] + contact[2] + contact[3];
+	conPared[1] = contact[4] + contact[5] + contact[6] + contact[7];
+	umbral_luz = 0.5;
 
-	/*if(redbattery[0] <= 0.1) //Si ha pasado el turno se dirige a realizar el cambio de turno
+	if((redbattery[0] <= 0.2 || cargando == 1) && caso != 4) //Si ha pasado el turno se dirige a realizar el cambio de turno
 	{
-		m_acWheels->SetOutput(0, redSpeed[1]); //Para dirigirse a la luz que carga la bateria (realiza el cambio de turno) hacemos que las ruedas se muevan
-  		m_acWheels->SetOutput(1, redSpeed[0]); //a la velocidad a la que les dicen los sensores del lado contrario.
+		if(redbattery[0] < 0.95)
+		{
+			#ifdef DEBUG_CASO
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			std::cout << "El caso es: " << caso  << " Pero está cargando"<< std::endl;
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			#endif
+			cargando = 1;
+			m_acWheels->SetOutput(0, redSpeed[0]); //Para dirigirse a la luz que carga la bateria (realiza el cambio de turno) hacemos que las ruedas se muevan
+  			m_acWheels->SetOutput(1, redSpeed[1]); //a la velocidad a la que les dicen los sensores del lado contrario.
+		}
+		else if(redbattery[0] >= 0.95)
+		{
+			cargando = 0;
+		}	
 	}
-	else //Si ha realizado el cambio de turno se dirige a recoger a los pacientes
-	{*/
+	else if(cargando == 0) //Si ha realizado el cambio de turno se dirige a recoger a los pacientes
+	{
 
 		if(caso == 0) //Recoge uno a uno a los pacientes de mayor importancia
 		{
@@ -260,7 +278,7 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			#endif
 
-			if ( totalLight >= 0.40)
+			if ( totalLight >= umbral_luz)
 			{
 				m_seLight->SwitchNearestLight(0);
 				numAm = numAm + 1;
@@ -297,35 +315,31 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			#endif
 
+			double relX = fabs(m_pcEpuck->GetPosition().x - 1.1);
+			double relY = fabs(m_pcEpuck->GetPosition().y + 1.1);
+			double hip = sqrt(relX*relX + relY*relY);
+			double phi = 6.28 - acos(relX/hip);
+
 			#ifdef DEBUG_POS
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
-			std::cout << "X: " << m_pcEpuck->GetPosition().x << " | Y: " << m_pcEpuck->GetPosition().y << std::endl;
+			std::cout << "relX: " << relX << " | relY: " << relY << std::endl;
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			#endif
 
+			#ifdef DEBUG_PHI
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			std::cout << "Phi: " << phi << std::endl;
+			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+			#endif
 
-			if(compass[0] < 6.25 && compass[0] > 0.1)
+			if(compass[0] < phi - 0.1 || compass[0] > phi + 0.1)
 			{
+				
 				m_acWheels->SetSpeed(50,-50);
 			}
-			else if((compass[0] > 6.25 || compass[0] < 0.1))
+			else if((compass[0] > phi - 0.1 && compass[0] < phi + 0.1))
 			{
 				caso = 3;
-				//std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
-				//std::cout << "VelX: " << 500 + 150*conSpeed[0] << " | VelY: " << 500 + 150*conSpeed[1] << std::endl;
-				//std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
-				//m_acWheels->SetSpeed(500 + 150*conSpeed[0],500 + 150*conSpeed[1]);
-			//}
-			//else if((m_pcEpuck->GetPosition().x >= 1.2) && (m_pcEpuck->GetPosition().y < -1.2))
-			//{
-			//	if(numAm == m_nLightObjectNumber)
-			//	{
-			//		caso = 2; //Si ya ha recogido todos los pacientes va a recoger a los pacientes de menor importancia
-			//	}
-			//	else
-			//	{
-			//		caso = 0; //Si aun quedan pacientes de esta importancia vuelve al estado de recoger a los pacientes
-			//	}
 			}
 		}
 		else if (caso == 2) //Recoge a los pacientes de menor importancia
@@ -336,10 +350,15 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			#endif
 
-			if ( totalBlueLight >= 0.40)
+			if ( totalBlueLight >= umbral_luz)
 			{
 				m_seBlueLight->SwitchNearestLight(0);
 				numBl = numBl + 1;
+				#ifdef DEBUG_NUMBL
+				std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+				std::cout << "NUMBL: " << numBl << std::endl;
+				std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
+				#endif
 				if(numBl == m_nBlueLightObjectNumber)
 				{
 					caso = 1;
@@ -398,7 +417,7 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 			#endif
 			m_acWheels->SetSpeed(500,500);
 
-			if((conPared > 0) && (m_pcEpuck->GetPosition().y > -1.2))
+			if((conPared[0] > 0 && conPared[0] > conPared[1]) && (m_pcEpuck->GetPosition().y > -1.1))
 			{
 				if(compass[0] < 4.65 || compass[0] > 4.7)
 				{
@@ -409,13 +428,24 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 					m_acWheels->SetSpeed(500,500);
 				}
 			}
-			else if((m_pcEpuck->GetPosition().x >= 1.2) && (m_pcEpuck->GetPosition().y < -1.2))
+			else if((conPared[1] > 0 && conPared[0] < conPared[1]) && (m_pcEpuck->GetPosition().x > 1.1))
 			{
-				if(numAm == m_nLightObjectNumber)
+				if(compass[0] < 6.28 || compass[0] > 0.1)
+				{
+					m_acWheels->SetSpeed(-50,50);
+				}
+				else
+				{
+					m_acWheels->SetSpeed(500,500);
+				}
+			}
+			else if((m_pcEpuck->GetPosition().x >= 1.1) && (m_pcEpuck->GetPosition().y < -1.1))
+			{
+				if(numAm == m_nLightObjectNumber && numBl != m_nBlueLightObjectNumber)
 				{
 					caso = 2; //Si ya ha recogido todos los pacientes va a recoger a los pacientes de menor importancia
 				}
-				else if(numBl == m_nBlueLightObjectNumber)
+				else if(numBl == m_nBlueLightObjectNumber && numAm == m_nLightObjectNumber)
 				{
 					caso = 4;
 				}
@@ -437,7 +467,7 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	//m_acWheels->SetOutput(0,0.5);
 	//m_acWheels->SetOutput(1,0.5);
 	
-//}
+}
 
 /******************************************************************************/
 /******************************************************************************/
