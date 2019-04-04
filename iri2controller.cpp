@@ -28,10 +28,14 @@
 /******************** Controller **************/
 #include "iri2controller.h"
 
+/******************** Debugger ***************/
+
+/* Lo utilizamos para asegurarnos que funciona correctamente el programa */
+
 //#define DEBUG_LIGTS
 //#define DEBUG_PHI
-#define DEBUG_CASO
-#define DEBUG_NUMBL
+//#define DEBUG_CASO
+//#define DEBUG_NUMBL
 //#define DEBUG_CONT
 //#define DEBUG_POS
 
@@ -76,7 +80,7 @@ CIri2Controller::CIri2Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 	/* Set compass Sensor */
 	m_seCompass = (CCompassSensor*) m_pcEpuck->GetSensor (SENSOR_COMPASS);
 
-	/*Initialize varibles*/
+	/*Initialize variables*/
 	caso = 0;
 	numAm = 0;
 	numBl = 0;
@@ -131,6 +135,8 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	
 	/* FASE 2: CONTROLADOR */
 	
+	/* Omitimos la lectura de los datos que no utilizamos */
+
 	/* Inicio Incluir las ACCIONES/CONTROLADOR a implementar */
 	printf("CONTACT: ");
 	for ( int i = 0 ; i < m_seContact->GetNumberOfInputs() ; i ++ )
@@ -235,23 +241,25 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 		std::cout << "Sensor " << light_size << " es " << light[light_size] << std::endl;
 	std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 	#endif
-	totalLight = 0.5*light[7] + 0.5*light[0] + 0.05*light[1] + 0.05*light[6];
-	totalBlueLight = 0.5*bluelight[7] + 0.5*bluelight[0] + 0.05*bluelight[1] + 0.05*bluelight[6];
+
+	totalLight = 0.5*light[7] + 0.5*light[0] + 0.05*light[1] + 0.05*light[6]; //Para encontrar a los pacientes más graves
+	totalBlueLight = 0.5*bluelight[7] + 0.5*bluelight[0] + 0.05*bluelight[1] + 0.05*bluelight[6]; //Para encontrar a los pacientes menos graves
 	redSpeed[0] = (redlight[0] + redlight[1] + redlight[2] + redlight[3]); //Sensores de luz del lado izquierdo
 	redSpeed[1] = (redlight[4] + redlight[5] + redlight[6] + redlight[7]); //Sensores de luz del lado derecho
-	conPared[0] = contact[0] + contact[1] + contact[2] + contact[3];
-	conPared[1] = contact[4] + contact[5] + contact[6] + contact[7];
+	conPared[0] = contact[0] + contact[1] + contact[2] + contact[3]; //Para detectar si toca la pared
+	conPared[1] = contact[4] + contact[5] + contact[6] + contact[7]; //Para detectar si toca la pared
 	umbral_luz = 0.5;
 
 	if((redbattery[0] <= 0.2 || cargando == 1) && caso != 4) //Si ha pasado el turno se dirige a realizar el cambio de turno
 	{
-		if(redbattery[0] < 0.95)
+		if(redbattery[0] < 0.95) //Marca la jornada, al final de la cual se dirige al hospital a realizar el cambio de turno 
 		{
 			#ifdef DEBUG_CASO
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			std::cout << "El caso es: " << caso  << " Pero está cargando"<< std::endl;
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			#endif
+
 			cargando = 1;
 			m_acWheels->SetOutput(0, redSpeed[0]); //Para dirigirse a la luz que carga la bateria (realiza el cambio de turno) hacemos que las ruedas se muevan
   			m_acWheels->SetOutput(1, redSpeed[1]); //a la velocidad a la que les dicen los sensores del lado contrario.
@@ -263,8 +271,7 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	}
 	else if(cargando == 0) //Si ha realizado el cambio de turno se dirige a recoger a los pacientes
 	{
-
-		if(caso == 0) //Recoge uno a uno a los pacientes de mayor importancia
+		if(caso == 0) //Recoge uno a uno a los pacientes de mayor gravedad
 		{
 			#ifdef DEBUG_CASO
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
@@ -278,11 +285,12 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			#endif
 
-			if ( totalLight >= umbral_luz)
+			if ( totalLight >= umbral_luz) //Busca a los pacientes de mayor gravedad y los recoge (apagando la luz que los simboliza)
 			{
 				m_seLight->SwitchNearestLight(0);
 				numAm = numAm + 1;
 				caso = 1;
+
 				#ifdef DEBUG_CASO
 				std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 				std::cout << "El caso es: " << caso << std::endl;
@@ -307,7 +315,7 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 				m_acWheels->SetSpeed(500,500);
 			}	
 		}
-		else if (caso == 1) //Tras recoger un unico paciente va al hospital
+		else if (caso == 1) //Tras recoger uno o varios pacientes, éncuentra el ángulo que le llevará en una linea recta al hospital
 		{
 			#ifdef DEBUG_CASO
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
@@ -334,7 +342,6 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 
 			if(compass[0] < phi - 0.1 || compass[0] > phi + 0.1)
 			{
-				
 				m_acWheels->SetSpeed(50,-50);
 			}
 			else if((compass[0] > phi - 0.1 && compass[0] < phi + 0.1))
@@ -342,7 +349,7 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 				caso = 3;
 			}
 		}
-		else if (caso == 2) //Recoge a los pacientes de menor importancia
+		else if (caso == 2) //Recoge a los pacientes de menor gravedad
 		{
 			#ifdef DEBUG_CASO
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
@@ -350,7 +357,7 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			#endif
 
-			if ( totalBlueLight >= umbral_luz)
+			if ( totalBlueLight >= umbral_luz) //Busca a los pacientes de menor gravedad y los trata (apagando la luz que los simboliza)
 			{
 				m_seBlueLight->SwitchNearestLight(0);
 				numBl = numBl + 1;
@@ -382,7 +389,7 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 				m_acWheels->SetSpeed(500,500);
 			}	
 		}
-		/*else if (caso == 3) // Tras recoger a todos los pacientes de menor importancia va al hospital
+		else if(caso == 3) //Llega al hospital ajustando para que al tocar la pared vaya directo. Cuando llega al hospital sale a por más pacientes o si no quedan pacientes se queda allí.
 		{
 			#ifdef DEBUG_CASO
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
@@ -390,31 +397,12 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			#endif
 
-			if(compass[0] < 5.5 || compass[0] > 5.7)
-			{
-				m_acWheels->SetSpeed(-50,50);
-			}
-			else if((compass[0] > 5.5 || compass[0] < 5.7) && ((m_pcEpuck->GetPosition().x < 1.1) || (m_pcEpuck->GetPosition().y > -1.1)))
-			{
-				m_acWheels->SetSpeed(500,500);
-			}
-			else if((m_pcEpuck->GetPosition().x >= 1.1) && (m_pcEpuck->GetPosition().y < -1.1))
-			{
-				caso = 5;
-			}	
-		}*/
-		else if(caso == 3)
-		{
-			#ifdef DEBUG_CASO
-			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
-			std::cout << "El caso es: " << caso << std::endl;
-			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
-			#endif
 			#ifdef DEBUG_CONT
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			std::cout << "Contacto: " << conPared << std::endl;
 			std::cout << "%%%%%%%%%%%%%%%%%%%" << std::endl;
 			#endif
+			
 			m_acWheels->SetSpeed(500,500);
 
 			if((conPared[0] > 0 && conPared[0] > conPared[1]) && (m_pcEpuck->GetPosition().y > -1.1))
@@ -443,30 +431,24 @@ void CIri2Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 			{
 				if(numAm == m_nLightObjectNumber && numBl != m_nBlueLightObjectNumber)
 				{
-					caso = 2; //Si ya ha recogido todos los pacientes va a recoger a los pacientes de menor importancia
+					caso = 2; //Si ya ha recogido todos los pacientes va a recoger a los pacientes de menor gravedad
 				}
 				else if(numBl == m_nBlueLightObjectNumber && numAm == m_nLightObjectNumber)
 				{
-					caso = 4;
+					caso = 4;//Si ya ha recogido a todos los pacientes se queda en el hospital
 				}
 				else
 				{
-					caso = 0; //Si aun quedan pacientes de esta importancia vuelve al estado de recoger a los pacientes
+					caso = 0; //Si aun quedan pacientes de esa gravedad vuelve al estado de recoger a los pacientes
 				}
 			}
 		}
-		else //ya ha recogido a todos los pacientes de todas las importancias y se queda parado en el hospital
+		else //ya ha recogido a todos los pacientes de todas las gravedades y se queda parado en el hospital
 		{
 			printf("La ambulancia ha atendido a todos los pacientes.");
 			m_acWheels->SetSpeed(0,0);
 		}
 	}
-	//m_acWheels->SetSpeed(500,500);
-
-	/* Option 2: Speed between 0,1*/
-	//m_acWheels->SetOutput(0,0.5);
-	//m_acWheels->SetOutput(1,0.5);
-	
 }
 
 /******************************************************************************/
