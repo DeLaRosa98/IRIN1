@@ -34,6 +34,7 @@ extern long int rngSeed;
 using namespace std;
 
 //#define DEBUG_ALL
+//#define DEBUG_STATES
 
 CIri1Controller::CIri1Controller (const char* pch_name, CEpuck* pc_epuck, int n_write_to_file) : CController (pch_name, pc_epuck)
 
@@ -121,7 +122,6 @@ void CIri1Controller::avoid()
 	{
 		boolean = false;
 	}
-	printf("ProxMax: %f ProxAngle: %f \n",max, angle);
 	robot_state_t state = {angle, boolean};
 	states[0] = state;		
 	
@@ -203,7 +203,7 @@ void CIri1Controller::yellow()
 	{
 		boolean = true;
 	}
-	printf("YellowMax: %f YellowAngle: %f \n",max, angle);
+	//printf("YellowMax: %f YellowAngle: %f \n",max, angle);
 	robot_state_t state = {angle, boolean};
 	states[3] = state;
 }
@@ -250,7 +250,6 @@ void CIri1Controller::blue()
 	{
 		boolean = true;
 	}
-	printf("BlueMax: %f BlueAngle: %f \n",max, angle);
 	robot_state_t state = {angle, boolean};
 	states[4] = state;
 }
@@ -293,8 +292,6 @@ void CIri1Controller::gohosp()
 	{
 		boolean = false;
 	}
-
-	printf("RedAngle: %f RedMax: %f \n", angle, max);
 	robot_state_t state = {angle, boolean};
 	states[2] = state;		
 }
@@ -434,13 +431,18 @@ void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	gohosp();
 	yellow();
 	blue();
-	printf("GoHospY: %d GoHospB: %d \n", goToHospY, goToHospB);
 	
+	#ifdef DEBUG_STATES
+	printf("%%%%%%%%%%Información de estados%%%%%%%%%%\n");
+	#endif
+
 	robot_state_t state = {0 , false};
 
 	for(int i= 0; i < 5; i++)
 	{
-		printf("i: %d; angle: %f; active: %d\n", i, states[i].angle, states[i].active);
+		#ifdef DEBUG_STATES
+		printf("Estado: %d; angle: %f; active: %d\n", i, states[i].angle, states[i].active);
+		#endif
 		if(states[i].active)
 		{
 		state = states[i];
@@ -470,8 +472,9 @@ void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 
 	m_acWheels->SetSpeed(lWheel,rWheel);
 
+	#ifdef DEBUG_STATES
 	printf("TotalAngle: %f VelX: %f VelY: %f \n", state.angle, rWheel, lWheel);
-
+	#endif
 
 
 	
