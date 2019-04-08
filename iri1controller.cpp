@@ -1,14 +1,14 @@
-/******************* INCLUDES ******************/
+/******************* INCLUDES *******************/
 /***********************************************/
 
-/******************** General ******************/
+/******************** General ********************/
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <sys/time.h>
 #include <iostream>
 
-/******************** Simulator ****************/
-/******************** Sensors ******************/
+/******************** Simulator ********************/
+/******************** Sensors ********************/
 #include "epuckproximitysensor.h"
 #include "contactsensor.h"
 #include "reallightsensor.h"
@@ -22,10 +22,10 @@
 #include "encodersensor.h"
 #include "compasssensor.h"
 
-/******************** Actuators ****************/
+/******************** Actuators ********************/
 #include "wheelsactuator.h"
 
-/******************** Controller **************/
+/******************** Controller ********************/
 #include "iri1controller.h"
 
 extern gsl_rng* rng;
@@ -33,13 +33,12 @@ extern long int rngSeed;
 
 using namespace std;
 
+/******************** DEBUGS ********************/
 //#define DEBUG_ALL
-//#define DEBUG_STATES
+#define DEBUG_STATES
 
 CIri1Controller::CIri1Controller (const char* pch_name, CEpuck* pc_epuck, int n_write_to_file) : CController (pch_name, pc_epuck)
-
 {
-
 	/* Set Write to File */
 	m_nWriteToFile = n_write_to_file;
 
@@ -69,7 +68,7 @@ CIri1Controller::CIri1Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 	m_seRedBattery = (CRedBatterySensor*) m_pcEpuck->GetSensor (SENSOR_RED_BATTERY);
 	/* Set encoder Sensor */
 	m_seEncoder = (CEncoderSensor*) m_pcEpuck->GetSensor (SENSOR_ENCODER);
-  m_seEncoder->InitEncoderSensor(m_pcEpuck);
+ 	m_seEncoder->InitEncoderSensor(m_pcEpuck);
 	/* Set compass Sensor */
 	m_seCompass = (CCompassSensor*) m_pcEpuck->GetSensor (SENSOR_COMPASS);
 
@@ -85,7 +84,6 @@ CIri1Controller::CIri1Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 CIri1Controller::~CIri1Controller()
 {
 }
-
 
 /******************************************************************************/
 /******************************************************************************/
@@ -114,7 +112,7 @@ void CIri1Controller::avoid()
 
 	angle = atan2(angleY, angleX) - M_PI;
 
-	if(max > 0.65)
+	if(max > 0.7)
 	{
 		boolean = true;
 	}
@@ -124,7 +122,6 @@ void CIri1Controller::avoid()
 	}
 	robot_state_t state = {angle, boolean};
 	states[0] = state;		
-	
 }
 
 void CIri1Controller::charge()
@@ -148,7 +145,7 @@ void CIri1Controller::charge()
 
 	if(m_seRedBattery->GetBatteryLevel() <= 0.15 || charging)
 	{
-		if(m_seRedBattery->GetBatteryLevel() >= 0.95)
+		if(m_seRedBattery->GetBatteryLevel() <= 0.7)
 		{
 			charging = 1;
 			boolean = 1;
@@ -159,10 +156,8 @@ void CIri1Controller::charge()
 			boolean = 0;
 		}
 	}
-
 	robot_state_t state = {angle, boolean};
 	states[1] = state;		
-	
 }
 
 void CIri1Controller::yellow()
@@ -203,7 +198,6 @@ void CIri1Controller::yellow()
 	{
 		boolean = true;
 	}
-	//printf("YellowMax: %f YellowAngle: %f \n",max, angle);
 	robot_state_t state = {angle, boolean};
 	states[3] = state;
 }
@@ -278,7 +272,7 @@ void CIri1Controller::gohosp()
 
 	angle = atan2(angleY, angleX);
 
-	if(max > 0.95)
+	if(max > 0.85)
 	{
 		goToHospB = false;
 		goToHospY = false;
@@ -298,8 +292,6 @@ void CIri1Controller::gohosp()
 
 void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, double f_step_interval)
 {
-
-
 	/* FASE 1: LECTURA DE SENSORES */
 
 	/* Leer Sensores de Contacto */
@@ -327,10 +319,10 @@ void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	/* Leer Compass */
 	double* compass = m_seCompass->GetSensorReading(m_pcEpuck);
 
-	
 	/* FASE 2: CONTROLADOR */
 	
 	/* Inicio Incluir las ACCIONES/CONTROLADOR a implementar */
+	
 	#ifdef DEBUG_ALL
 	printf("CONTACT: ");
 	for ( int i = 0 ; i < m_seContact->GetNumberOfInputs() ; i ++ )
@@ -394,6 +386,7 @@ void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 		printf("%1.3f ", bluebattery[i]);
 	}
 	printf("\n");
+	
 	printf("RED BATTERY: ");
 	for ( int i = 0 ; i < m_seRedBattery->GetNumberOfInputs() ; i ++ )
 	{
@@ -401,14 +394,14 @@ void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	}
 	printf("\n");
 	
-  printf("ENCODER: ");
+  	printf("ENCODER: ");
 	for ( int i = 0 ; i < m_seEncoder->GetNumberOfInputs() ; i ++ )
 	{
 		printf("%1.5f ", encoder[i]);
 	}
 	printf("\n");
   
-  printf("COMPASS: ");
+  	printf("COMPASS: ");
 	for ( int i = 0 ; i < m_seCompass->GetNumberOfInputs() ; i ++ )
 	{
 		printf("%1.5f ", compass[i]);
@@ -416,7 +409,6 @@ void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	printf("\n");
 
 	/* Fin: Incluir las ACCIONES/CONTROLADOR a implementar */
-
 
 	FILE* filePosition = fopen("outputFiles/robotPosition", "a");
 	fprintf(filePosition," %2.4f %2.4f %2.4f %2.4f\n",
@@ -449,13 +441,10 @@ void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 		break;
 		}
 	}
-
 	
 	double rWheel = 0;
 	double lWheel = 0;
 
-
-	
 	if(state.active)
 	{
 		if(state.angle >0)
@@ -473,13 +462,10 @@ void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	m_acWheels->SetSpeed(lWheel,rWheel);
 
 	#ifdef DEBUG_STATES
-	printf("TotalAngle: %f VelX: %f VelY: %f \n", state.angle, rWheel, lWheel);
+	printf("TotalAngle: %f VelX: %f VelY: %f Batt: %f \n", state.angle, rWheel, lWheel, redbattery[0]);
 	#endif
 
-
-	
 }
 
 /******************************************************************************/
 /******************************************************************************/
-
