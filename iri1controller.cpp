@@ -36,6 +36,7 @@ using namespace std;
 /******************** DEBUGS ********************/
 //#define DEBUG_ALL
 #define DEBUG_STATES
+#define DEBUG_PTF
 
 CIri1Controller::CIri1Controller (const char* pch_name, CEpuck* pc_epuck, int n_write_to_file) : CController (pch_name, pc_epuck)
 {
@@ -75,6 +76,8 @@ CIri1Controller::CIri1Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 	goToHosp = false;
 	speed = 500;
 	maxB = 0;
+	numB = 0;
+	numY = 0;
 }
 
 /******************************************************************************/
@@ -243,6 +246,13 @@ void CIri1Controller::yellow()
 	if(max > 0.95 && (!goToHosp && !charge_inhibitor))
 	{
 		m_seLight->SwitchNearestLight(0);
+
+		#ifdef DEBUG_STATES
+		printf("Apagado\n\n");
+		#endif
+		#ifdef DEBUG_PTF
+		numY += 1;
+		#endif
 		goToHosp = true;
 	}
 
@@ -285,6 +295,12 @@ void CIri1Controller::blue()
 	if(maxB > 0.95 && (!goToHosp && !charge_inhibitor && !yellow_inhibitor))
 	{
 		m_seBlueLight->SwitchNearestLight(0);
+		#ifdef DEBUG_STATES
+		printf("Apagado\n\n");
+		#endif
+		#ifdef DEBUG_PTF
+		numB += 1;
+		#endif
 	}
 
 	if(maxB == 0)
@@ -425,13 +441,6 @@ void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	printf("\n");
 
 	/* Fin: Incluir las ACCIONES/CONTROLADOR a implementar */
-
-	FILE* filePosition = fopen("outputFiles/robotPosition", "a");
-	fprintf(filePosition," %2.4f %2.4f %2.4f %2.4f\n",
-	f_time, m_pcEpuck->GetPosition().x,
-	m_pcEpuck->GetPosition().y,
-	m_pcEpuck->GetRotation());
-	fclose(filePosition);
 	#endif
 
 	avoid();
@@ -443,19 +452,6 @@ void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	#ifdef DEBUG_STATES
 	printf("%%%%%%%%%%Información de estados%%%%%%%%%%\n");
 	#endif
-
-	
-	/*for(int i= 0; i < NUM_STATES; i++)
-	{
-		#ifdef DEBUG_STATES
-		printf("Estado: %d; angle: %f; active: %d\n", i, states[i].angle, states[i].active);
-		#endif
-		if(states[i].active)
-		{
-		state = states[i];
-		break;
-		}
-	}*/
 
 	double sum = 0;
 	double angle = 0;
@@ -508,12 +504,29 @@ void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	m_acWheels->SetSpeed(lWheel,rWheel);
 
 	#ifdef DEBUG_STATES
-	printf("TotalAngle: %f VelX: %f VelY: %f Batt: %f \n", angle, rWheel, lWheel, redbattery[0]);
+	printf("TotalAngle: %f VelX: %f VelY: %f Batt: %f NumY: %d NumB: %d\n", angle, rWheel, lWheel, redbattery[0], numY, numB);
 	#endif
 
-	
-	//angle = states[0].angle*AVOID_PRIORITY + states[1].angle*CHARGE_PRIORITY + states[2].angle*GOHOSP_PRIORITY
+	double relX = fabs(m_pcEpuck->GetPosition().x - 1.2);
+	double relY = fabs(m_pcEpuck->GetPosition().y + 1.2);
+	double dist = sqrt(relX*relX + relY*relY);
 
+
+	#ifdef DEBUG_PTF
+	FILE* filePosition = fopen("outputFiles/robotPosition3", "a");
+	fprintf(filePosition,"%2.4f %2.4f %2.4f %d %d %d %d %d %d %d\n",
+	f_time, 
+	redbattery[0],
+	dist,
+	numY,
+	numB,
+	states[0].active,
+	states[1].active,
+	states[2].active,
+	states[3].active,
+	states[4].active);
+	fclose(filePosition);
+	#endif
 }
 
 /******************************************************************************/

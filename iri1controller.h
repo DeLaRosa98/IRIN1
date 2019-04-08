@@ -64,6 +64,8 @@ private:
 		bool charge_inhibitor;
 		bool yellow_inhibitor;
 		bool finish_inhibitor;
+		int numB;
+		int numY;
 
 };
 
