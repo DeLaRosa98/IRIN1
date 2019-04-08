@@ -72,10 +72,9 @@ CIri1Controller::CIri1Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 	/* Set compass Sensor */
 	m_seCompass = (CCompassSensor*) m_pcEpuck->GetSensor (SENSOR_COMPASS);
 
-	charging = false;
-	goToHospY = false;
-	goToHospB = false;
+	goToHosp = false;
 	speed = 500;
+	maxB = 0;
 }
 
 /******************************************************************************/
@@ -120,7 +119,7 @@ void CIri1Controller::avoid()
 	{
 		boolean = false;
 	}
-	robot_state_t state = {angle, boolean};
+	robot_state_t state = {angle, boolean, AVOID_PRIORITY};
 	states[0] = state;		
 }
 
@@ -143,109 +142,21 @@ void CIri1Controller::charge()
 
 	angle = atan2(angleY, angleX);
 
-	if(m_seRedBattery->GetBatteryLevel() <= 0.15 || charging)
+	if(m_seRedBattery->GetBatteryLevel() <= 0.15 || charge_inhibitor)
 	{
 		if(m_seRedBattery->GetBatteryLevel() <= 0.7)
 		{
-			charging = 1;
 			boolean = 1;
+			charge_inhibitor = 1;
 		}
 		else
 		{
-			charging = 0;
 			boolean = 0;
+			charge_inhibitor = 0;
 		}
 	}
-	robot_state_t state = {angle, boolean};
+	robot_state_t state = {angle, boolean, CHARGE_PRIORITY};
 	states[1] = state;		
-}
-
-void CIri1Controller::yellow()
-{
-	double angle;
-	double boolean;
-
-	const double* directions = m_seLight->GetSensorDirections();
-	const double* data = m_seLight->GetSensorReading(m_pcEpuck);
-
-	double angleX = 0;
-	double angleY = 0;
-	double max = 0;
-
-	for(int i= 0; i<m_seLight->GetNumberOfInputs(); i++)
-	{
-		angleX += data[i]*cos(directions[i]);
-		angleY += data[i]*sin(directions[i]);
-		if(data[i] > max)
-		{
-			max = data[i];
-		}
-	}
-
-	if(max > 0.95 && !goToHospY)
-	{
-		m_seLight->SwitchNearestLight(0);
-		goToHospY = true;
-	}
-
-	angle = atan2(angleY, angleX);
-
-	if(max == 0 || goToHospY)
-	{
-		boolean = false;
-	}
-	else
-	{
-		boolean = true;
-	}
-	robot_state_t state = {angle, boolean};
-	states[3] = state;
-}
-
-void CIri1Controller::blue()
-{
-	double angle;
-	double boolean;
-
-	const double* directions = m_seBlueLight->GetSensorDirections();
-	const double* data = m_seBlueLight->GetSensorReading(m_pcEpuck);
-
-	double angleX = 0;
-	double angleY = 0;
-	double max = 0;
-
-	for(int i= 0; i<m_seBlueLight->GetNumberOfInputs(); i++)
-	{
-		angleX += data[i]*cos(directions[i]);
-		angleY += data[i]*sin(directions[i]);
-		if(data[i] > max)
-		{
-			max = data[i];
-		}
-	}
-
-	if(max > 0.9 && (!goToHospY && !states[3].active))
-	{
-		m_seBlueLight->SwitchNearestLight(0);
-	}
-
-	if(max == 0)
-	{
-		goToHospB = true;
-	}
-
-	angle = atan2(angleY, angleX);
-
-	if((max == 0 || goToHospB) && (!goToHospY && !states[3].active))
-	{
-		boolean = false;
-	}
-	else
-	{
-		boolean = true;
-	}
-	robot_state_t state = {angle, boolean};
-	states[4] = state;
 }
 
 void CIri1Controller::gohosp()
@@ -272,13 +183,21 @@ void CIri1Controller::gohosp()
 
 	angle = atan2(angleY, angleX);
 
-	if(max > 0.85)
+	if(max > 0.85 && !charge_inhibitor)
 	{
-		goToHospB = false;
-		goToHospY = false;
+		goToHosp = false;
 	}
 
-	if(goToHospY || goToHospB)
+	if(maxB == 0 && max > 0.85)
+	{
+		finish_inhibitor = true;
+	}
+	else
+	{
+		finish_inhibitor = false;
+	}
+
+	if(goToHosp && !charge_inhibitor)
 	{
 		boolean = true;
 	}
@@ -286,8 +205,105 @@ void CIri1Controller::gohosp()
 	{
 		boolean = false;
 	}
-	robot_state_t state = {angle, boolean};
+	robot_state_t state = {angle, boolean, GOHOSP_PRIORITY};
 	states[2] = state;		
+}
+
+void CIri1Controller::yellow()
+{
+	double angle;
+	double boolean;
+
+	const double* directions = m_seLight->GetSensorDirections();
+	const double* data = m_seLight->GetSensorReading(m_pcEpuck);
+
+	double angleX = 0;
+	double angleY = 0;
+	double max = 0;
+
+	for(int i= 0; i<m_seLight->GetNumberOfInputs(); i++)
+	{
+		angleX += data[i]*cos(directions[i]);
+		angleY += data[i]*sin(directions[i]);
+		if(data[i] > max)
+		{
+			max = data[i];
+		}
+	}
+
+	if(max != 0)
+	{
+		yellow_inhibitor = true;
+	}
+	else
+	{
+		yellow_inhibitor = false;
+	}
+
+	if(max > 0.95 && (!goToHosp && !charge_inhibitor))
+	{
+		m_seLight->SwitchNearestLight(0);
+		goToHosp = true;
+	}
+
+	angle = atan2(angleY, angleX);
+
+	if(max == 0 || goToHosp || charge_inhibitor)
+	{
+		boolean = false;
+	}
+	else
+	{
+		boolean = true;
+	}
+	robot_state_t state = {angle, boolean, YELLOW_PRIORITY};
+	states[3] = state;
+}
+
+void CIri1Controller::blue()
+{
+	double angle;
+	double boolean;
+
+	const double* directions = m_seBlueLight->GetSensorDirections();
+	const double* data = m_seBlueLight->GetSensorReading(m_pcEpuck);
+
+	double angleX = 0;
+	double angleY = 0;
+	maxB = 0;
+
+	for(int i= 0; i<m_seBlueLight->GetNumberOfInputs(); i++)
+	{
+		angleX += data[i]*cos(directions[i]);
+		angleY += data[i]*sin(directions[i]);
+		if(data[i] > maxB)
+		{
+			maxB = data[i];
+		}
+	}
+
+	if(maxB > 0.95 && (!goToHosp && !charge_inhibitor && !yellow_inhibitor))
+	{
+		m_seBlueLight->SwitchNearestLight(0);
+	}
+
+	if(maxB == 0)
+	{
+		goToHosp = true;
+	}
+
+	angle = atan2(angleY, angleX);
+
+	if(maxB == 0 || goToHosp || charge_inhibitor || yellow_inhibitor)
+	{
+		boolean = false;
+	}
+	else
+	{
+		boolean = true;
+	}
+	robot_state_t state = {angle, boolean, BLUE_PRIORITY};
+	states[4] = state;
 }
 
 void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, double f_step_interval)
@@ -428,9 +444,8 @@ void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	printf("%%%%%%%%%%Información de estados%%%%%%%%%%\n");
 	#endif
 
-	robot_state_t state = {0 , false};
-
-	for(int i= 0; i < 5; i++)
+	
+	/*for(int i= 0; i < NUM_STATES; i++)
 	{
 		#ifdef DEBUG_STATES
 		printf("Estado: %d; angle: %f; active: %d\n", i, states[i].angle, states[i].active);
@@ -440,30 +455,64 @@ void CIri1Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 		state = states[i];
 		break;
 		}
+	}*/
+
+	double sum = 0;
+	double angle = 0;
+
+	for(int i = 0; i < NUM_STATES; i++)
+	{
+		#ifdef DEBUG_STATES
+		printf("Estado: %d; angle: %f; active: %d\n", i, states[i].angle, states[i].active);
+		#endif
+
+		if(states[i].active)
+		{
+			sum += states[i].priority;
+		}
+
 	}
+
+	for(int i = 0; i < NUM_STATES; i++)
+	{
+		if(states[i].active)
+		{
+			angle += states[i].angle*states[i].priority/sum;
+		}
+
+	}
+
 	
 	double rWheel = 0;
 	double lWheel = 0;
 
-	if(state.active)
-	{
-		if(state.angle >0)
+	if(!finish_inhibitor){
+		if(angle >0)
 		{
 			rWheel = speed;
-			lWheel = speed*cos(state.angle);
+			lWheel = speed*cos(angle);
 		}
-		else if(state.angle <= 0)
+		else if(angle <= 0)
 		{
-			rWheel = speed*cos(state.angle);
+			rWheel = speed*cos(angle);
 			lWheel = speed;
 		}
 	}
+	else
+	{
+		rWheel = 0;
+		lWheel = 0;
+	}
+	
 
 	m_acWheels->SetSpeed(lWheel,rWheel);
 
 	#ifdef DEBUG_STATES
-	printf("TotalAngle: %f VelX: %f VelY: %f Batt: %f \n", state.angle, rWheel, lWheel, redbattery[0]);
+	printf("TotalAngle: %f VelX: %f VelY: %f Batt: %f \n", angle, rWheel, lWheel, redbattery[0]);
 	#endif
+
+	
+	//angle = states[0].angle*AVOID_PRIORITY + states[1].angle*CHARGE_PRIORITY + states[2].angle*GOHOSP_PRIORITY
 
 }
 

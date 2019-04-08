@@ -1,6 +1,13 @@
 #ifndef IRI1CONTROLLER_H_
 #define IRI1CONTROLLER_H_
 
+#define NUM_STATES 5
+
+#define AVOID_PRIORITY   100.0
+#define CHARGE_PRIORITY  10.0
+#define GOHOSP_PRIORITY  5.0
+#define YELLOW_PRIORITY  1.0
+#define BLUE_PRIORITY  1.0
 
 /******************************************************************************/
 /******************************************************************************/
@@ -12,6 +19,7 @@
 typedef struct robot_state {
 	double angle;
 	bool active;
+	double priority;
 } robot_state_t;
 
 class CIri1Controller : public CController
@@ -49,11 +57,13 @@ private:
 
 		int m_nWriteToFile;
 
-		robot_state_t states[5];
-		bool charging;
-		bool goToHospY;
-		bool goToHospB;
+		robot_state_t states[NUM_STATES];
+		bool goToHosp;
 		double speed;
+		double maxB;
+		bool charge_inhibitor;
+		bool yellow_inhibitor;
+		bool finish_inhibitor;
 
 };
 
